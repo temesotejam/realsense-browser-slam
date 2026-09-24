@@ -1,12 +1,12 @@
-let prev=null,w=320,h=240,K=null,pose=I(),frame=0,keyframes=[],loops=0,relocalized=0,lostCount=0,lastTime=0,slamHz=0,path=[],keyframePath=[];
+let prev=null,w=320,h=240,K=null,pose=I(),lastRel=I(),frame=0,keyframes=[],loops=0,relocalized=0,lostCount=0,lastTime=0,slamHz=0,path=[],keyframePath=[];
 onmessage=e=>{const m=e.data;if(m.type==='reset'){reset();postMessage({type:'reset'});return;}if(m.type==='benchmark'){benchmark();return;}if(m.type==='frame')processFrame(m);};
-function reset(){prev=null;pose=I();frame=0;keyframes=[];loops=0;relocalized=0;lostCount=0;lastTime=0;slamHz=0;path=[];keyframePath=[];}
+function reset(){prev=null;pose=I();lastRel=I();frame=0;keyframes=[];loops=0;relocalized=0;lostCount=0;lastTime=0;slamHz=0;path=[];keyframePath=[];}
 function processFrame(m){const t0=performance.now(),depth=new Float32Array(m.depth),rgb=m.rgb?new Uint8Array(m.rgb):null;w=m.w;h=m.h;K=m.K;frame++;let state='INITIALIZED',inliers=0,rmse=0;
-  if(prev){const rel=track(depth,prev,poseGuess(),m.maxCorr||.08);inliers=rel.inliers;rmse=rel.rmse;if(rel.ok){pose=mul(pose,rel.T);state='TRACKING';lostCount=0;}else{lostCount++;const r=tryRelocalize(depth,rgb,m.maxCorr||.08);if(r){pose=r.pose;inliers=r.inliers;rmse=r.rmse;relocalized++;lostCount=0;state='RELOCALIZED';}else state='LOST';}}
+  if(prev){const rel=track(depth,prev,poseGuess(),m.maxCorr||.08);inliers=rel.inliers;rmse=rel.rmse;if(rel.ok){pose=mul(pose,rel.T);lastRel=rel.T.slice();state='TRACKING';lostCount=0;}else{lostCount++;const r=tryRelocalize(depth,rgb,m.maxCorr||.08);if(r){pose=r.pose;lastRel=I();inliers=r.inliers;rmse=r.rmse;relocalized++;lostCount=0;state='RELOCALIZED';}else state='LOST';}}
   if(state!=='LOST'){const need=isKeyframe(pose)||(frame<3);if(need)addKeyframe(depth,rgb,pose,m.maxCorr||.08);}
   prev=depth;const e=euler(pose);path.push({x:pose[3],y:pose[7],z:pose[11]});if(path.length>3000)path.shift();const now=performance.now();if(lastTime){const hz=1000/(now-lastTime);slamHz=slamHz?slamHz*.9+hz*.1:hz;}lastTime=now;postMessage({type:'result',state,inliers,rmse,computeMs:performance.now()-t0,slamHz,keyframes:keyframes.length,loops,relocalized,pose:{x:pose[3],y:pose[7],z:pose[11],roll:e[0],pitch:e[1],yaw:e[2]},matrix:Array.from(pose),path:path.slice(-1500),keyframePath:keyframePath.slice(-500)});
 }
-function poseGuess(){return I();}
+function poseGuess(){return lastRel.slice();}
 function isKeyframe(T){if(!keyframes.length)return true;const a=keyframes[keyframes.length-1].pose,d=rel(a,T);return trans(d)>.12||rot(d)>8*Math.PI/180||frame-a.frame>20;}
 function addKeyframe(depth,rgb,T,maxCorr){const desc=depthDesc(depth);let best=null,bestScore=1e9;for(let i=0;i<keyframes.length-4;i++){const q=keyframes[i],ds=descDist(desc,q.dd),rs=(rgb&&q.rgb)?rgbDist(rgb,q.rgb):.5,score=ds*.7+rs*.3;if(score<bestScore){bestScore=score;best=q;}}
   if(best&&bestScore<.16&&frame-best.frame>45){const verify=track(depth,best.depth,I(),Math.max(.10,maxCorr*1.4),[12,8,5],[4,4,5]);if(verify.ok&&verify.inliers>120&&verify.rmse<.045){const corrected=mul(best.pose,verify.T),err=mul(inv(T),corrected);pose=corrected;T=pose;applyLightCorrection(err,best.frame);loops++;}}
