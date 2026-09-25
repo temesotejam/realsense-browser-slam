@@ -64,6 +64,11 @@ jobs:
           node --check src/rgb-feature-source-build-20260925-21.js
           node --check src/main-build-20260925-21.js
           node --check src/slam-worker-build-20260925-21.js
+          node --check src/main-build-20260925-22.js
+          node --check src/slam-worker-build-20260925-22.js
+          node --check src/rgb-feature-source-build-20260925-21.js
+          node --check src/main-build-20260925-21.js
+          node --check src/slam-worker-build-20260925-21.js
       - uses: actions/configure-pages@v5
         with:
           enablement: true
