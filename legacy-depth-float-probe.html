@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b0f14" />
+  <title>RealSense Depth Float Probe</title>
+  <style>
+    :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:#0b0f14;color:#e6edf3;min-height:100vh}header{padding:24px clamp(16px,4vw,48px);border-bottom:1px solid #28313c}h1{margin:4px 0 0;font-size:clamp(24px,4vw,38px)}.eyebrow{color:#8b949e;letter-spacing:.14em;font-size:12px}main{max-width:1180px;margin:0 auto;padding:24px 16px 48px;display:grid;gap:16px}.card{background:#111820;border:1px solid #28313c;border-radius:14px;padding:18px}.actions{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}button,a.button{border:1px solid #3a4654;background:#18212b;color:#e6edf3;border-radius:9px;padding:10px 14px;font-weight:650;cursor:pointer;text-decoration:none}button.primary{background:#238636;border-color:#2ea043}button:disabled{opacity:.45;cursor:not-allowed}.muted{color:#8b949e}.ok{color:#3fb950}.warn{color:#d29922}.bad{color:#f85149}pre{margin:0;background:#090d12;border:1px solid #28313c;border-radius:10px;padding:14px;min-height:330px;max-height:64vh;overflow:auto;white-space:pre-wrap;word-break:break-word;font:12.5px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.note{line-height:1.6}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;border-bottom:1px solid #28313c;padding:9px 7px;vertical-align:top}th{color:#8b949e}code{background:#0d1117;padding:2px 5px;border-radius:5px}canvas,video{max-width:100%;background:#000;border:1px solid #28313c;border-radius:10px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:850px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<header><div class="eyebrow">REALSENSE · DEPTH PRECISION EXPERIMENT</div><h1>Depth Float / Z16 Probe</h1></header>
+<main>
+  <section class="card note">
+    This test opens every RealSense video input whose label contains <b>Depth</b>, then checks whether current Chrome still supports the historical depth-video path where an HTML video frame can be uploaded to a WebGL2 <code>R32F/FLOAT</code> texture without losing 16-bit precision.
+    It sends no firmware commands and changes no camera settings.
+    <div class="actions">
+      <button id="testBtn" class="primary">Grant permission & test Depth inputs</button>
+      <button id="copyBtn">Copy report</button>
+      <a class="button" href="./uvc-scan.html">UVC scan</a>
+      <a class="button" href="./">Viewer</a>
+    </div>
+    <div class="muted">Key result: FLOAT UPLOAD + FLOAT READBACK success, followed by low integer residual for <code>R × 65535</code>. That would strongly indicate preserved 16-bit depth samples.</div>
+  </section>
+
+  <section class="card">
+    <h2>Summary</h2>
+    <table><thead><tr><th>Depth input</th><th>Open</th><th>R32F upload</th><th>16-bit signature</th></tr></thead><tbody id="summary"><tr><td colspan="4" class="muted">Not tested yet.</td></tr></tbody></table>
+  </section>
+
+  <div class="grid">
+    <section class="card"><h2>Last depth preview</h2><video id="preview" autoplay muted playsinline></video></section>
+    <section class="card"><h2>8-bit canvas control</h2><canvas id="control" width="640" height="480"></canvas><p class="muted">This path is expected to lose precision; it is only a visual/control comparison.</p></section>
+  </div>
+
+  <section class="card"><h2>Diagnostic report</h2><pre id="log">Ready.</pre></section>
+</main>
+<script>
+(() => {
+  const testBtn=document.getElementById('testBtn'), copyBtn=document.getElementById('copyBtn');
+  const summary=document.getElementById('summary'), logEl=document.getElementById('log');
+  const preview=document.getElementById('preview'), control=document.getElementById('control');
+  let report='';
+  function stamp(){return new Date().toISOString()}
+  function reset(){report='';logEl.textContent='';summary.innerHTML=''}
+  function log(s=''){report+=s+'\n';logEl.textContent=report;logEl.scrollTop=logEl.scrollHeight}
+  function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  function glErrorName(gl,e){const m={0:'NO_ERROR',1280:'INVALID_ENUM',1281:'INVALID_VALUE',1282:'INVALID_OPERATION',1285:'OUT_OF_MEMORY',1286:'INVALID_FRAMEBUFFER_OPERATION'};return m[e]||`0x${e.toString(16)}`}
+  function waitVideo(video){return new Promise((resolve,reject)=>{if(video.readyState>=2&&video.videoWidth)return resolve();const to=setTimeout(()=>reject(new Error('Timed out waiting for video frame')),5000);video.onloadeddata=()=>{clearTimeout(to);resolve()};video.onerror=()=>{clearTimeout(to);reject(new Error('Video element error'))}})}
+  function statsFloat(buf){let nonzero=0,min=Infinity,max=-Infinity,sum=0,resSum=0,resMax=0,n=0;for(let i=0;i<buf.length;i++){const v=buf[i];if(!Number.isFinite(v))continue;n++;if(v!==0)nonzero++;if(v<min)min=v;if(v>max)max=v;sum+=v;const x=v*65535;const r=Math.abs(x-Math.round(x));resSum+=r;if(r>resMax)resMax=r}return {n,nonzero,min,max,mean:n?sum/n:NaN,integerResidualMean:n?resSum/n:NaN,integerResidualMax:resMax}}
+  function sampleList(buf,w,h){const pts=[[w>>1,h>>1],[w>>2,h>>1],[3*w>>2>>1,h>>1],[w>>1,h>>2],[w>>1,3*h>>2>>1]];return pts.map(([x,y])=>{const v=buf[y*w+x];return {x,y,r:v,z16:Math.round(v*65535),residual:Math.abs(v*65535-Math.round(v*65535))}})}
+  function addRow(label,opened,floatState,signature){const tr=document.createElement('tr');tr.innerHTML=`<td>${esc(label)}</td><td class="${opened?'ok':'bad'}">${opened?'OPEN':'FAILED'}</td><td class="${floatState==='SUCCESS'?'ok':'bad'}">${esc(floatState)}</td><td class="${signature==='LIKELY_Z16'?'ok':'warn'}">${esc(signature)}</td>`;summary.appendChild(tr)}
+
+  function tryFloatReadback(video){
+    const w=video.videoWidth,h=video.videoHeight;
+    const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+    const gl=canvas.getContext('webgl2',{premultipliedAlpha:false,preserveDrawingBuffer:true});
+    if(!gl)return {ok:false,reason:'WebGL2 unavailable'};
+    const ext=gl.getExtension('EXT_color_buffer_float');
+    if(!ext)return {ok:false,reason:'EXT_color_buffer_float unavailable'};
+    const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    while(gl.getError()!==gl.NO_ERROR){}
+    let thrown=null;try{gl.texImage2D(gl.TEXTURE_2D,0,gl.R32F,gl.RED,gl.FLOAT,video)}catch(e){thrown=e}
+    const uploadErr=gl.getError();
+    if(thrown||uploadErr!==gl.NO_ERROR)return {ok:false,reason:thrown?`${thrown.name}: ${thrown.message}`:`texImage2D ${glErrorName(gl,uploadErr)}`};
+    const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);const fbStatus=gl.checkFramebufferStatus(gl.FRAMEBUFFER);if(fbStatus!==gl.FRAMEBUFFER_COMPLETE)return {ok:false,reason:`Framebuffer incomplete: 0x${fbStatus.toString(16)}`};
+    const buf=new Float32Array(w*h);while(gl.getError()!==gl.NO_ERROR){};gl.readPixels(0,0,w,h,gl.RED,gl.FLOAT,buf);const readErr=gl.getError();if(readErr!==gl.NO_ERROR)return {ok:false,reason:`readPixels ${glErrorName(gl,readErr)}`};
+    const stats=statsFloat(buf),samples=sampleList(buf,w,h);const likely=stats.nonzero>100 && stats.min>=0 && stats.max<=1.0001 && stats.integerResidualMean<0.02;
+    return {ok:true,w,h,stats,samples,likely};
+  }
+
+  async function test(){
+    reset();testBtn.disabled=true;log(`[${stamp()}] RealSense Depth Float / Z16 Probe`);log(`Browser: ${navigator.userAgent}`);log(`Secure context: ${window.isSecureContext}`);log('');
+    let seed=null,lastStream=null;
+    try{
+      seed=await navigator.mediaDevices.getUserMedia({video:true,audio:false});seed.getTracks().forEach(t=>t.stop());seed=null;
+      const inputs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput'&&/realsense/i.test(d.label)&&/depth/i.test(d.label));
+      log(`Depth-labeled RealSense inputs: ${inputs.length}`);inputs.forEach((d,i)=>log(`  [${i}] ${d.label}`));
+      if(!inputs.length){summary.innerHTML='<tr><td colspan="4" class="bad">No Depth-labeled RealSense inputs.</td></tr>';return}
+      for(const d of inputs){
+        if(lastStream){lastStream.getTracks().forEach(t=>t.stop());lastStream=null}
+        log('');log(`--- ${d.label} ---`);
+        let stream=null;
+        try{
+          stream=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:d.deviceId}},audio:false});lastStream=stream;preview.srcObject=stream;await waitVideo(preview);
+          const track=stream.getVideoTracks()[0],settings=track.getSettings();log(`OPEN: success ${settings.width}x${settings.height} @ ${settings.frameRate} fps`);log(`Track label: ${track.label}`);
+          const c2=control.getContext('2d',{willReadFrequently:true});control.width=preview.videoWidth;control.height=preview.videoHeight;c2.drawImage(preview,0,0,control.width,control.height);const p=c2.getImageData(control.width>>1,control.height>>1,1,1).data;log(`8-bit canvas center RGBA: [${p[0]}, ${p[1]}, ${p[2]}, ${p[3]}]`);
+          const r=tryFloatReadback(preview);
+          if(!r.ok){log(`R32F FLOAT PATH: FAILED — ${r.reason}`);addRow(d.label,true,'FAILED','NOT_PROVEN');continue}
+          log('R32F FLOAT PATH: SUCCESS');log(`Float stats: ${JSON.stringify(r.stats,null,2)}`);log(`Samples (R, round(R*65535), residual): ${JSON.stringify(r.samples,null,2)}`);
+          if(r.likely){log('SIGNATURE: LIKELY_Z16 — float values are in [0,1] and R*65535 is very close to integer values.');addRow(d.label,true,'SUCCESS','LIKELY_Z16')}
+          else{log('SIGNATURE: FLOAT_AVAILABLE_BUT_NOT_Z16_CONFIRMED');addRow(d.label,true,'SUCCESS','NOT_CONFIRMED')}
+        }catch(e){log(`OPEN/TEST FAILED: ${e.name}: ${e.message}`);addRow(d.label,false,'FAILED','NOT_PROVEN');if(stream)stream.getTracks().forEach(t=>t.stop())}
+      }
+      log('');log('Interpretation: LIKELY_Z16 means the browser appears to preserve full 16-bit depth samples through the legacy float-video path. Metric distance still requires the camera depth-unit scale; do not assume a scale for calibrated measurements until it is verified for the device/configuration.');
+    }catch(e){log(`TEST FAILED: ${e.name}: ${e.message}`);summary.innerHTML=`<tr><td colspan="4" class="bad">${esc(e.name+': '+e.message)}</td></tr>`}
+    finally{testBtn.disabled=false}
+  }
+  testBtn.addEventListener('click',test);
+  copyBtn.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(report);copyBtn.textContent='Copied';setTimeout(()=>copyBtn.textContent='Copy report',1000)}catch{copyBtn.textContent='Copy failed';setTimeout(()=>copyBtn.textContent='Copy report',1000)}});
+  addEventListener('beforeunload',()=>{if(preview.srcObject)preview.srcObject.getTracks().forEach(t=>t.stop())});
+})();
+</script>
+</body>
+</html>
