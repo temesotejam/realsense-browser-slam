@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b0f14" />
+  <title>D435 Browser Localization SLAM</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">INTEL REALSENSE D435 · GITHUB PAGES ONLY</div>
+      <h1>D435 Browser Localization SLAM</h1>
+      <p>LEGACY VERIFIED DEPTH INPUT + persistent keyframe map + map anchoring + relocalization. No RealSense SDK, Python, ROS, or local server.</p>
+    </div>
+    <div class="build-status"><div id="statusBadge" class="badge idle">IDLE</div><span class="build-id">build 20260925.18</span></div>
+  </header>
+  <main class="layout">
+    <aside class="sidebar panel">
+      <section>
+        <h2>D435 input</h2>
+        <label>Depth input<select id="depthDevice"><option value="">Refresh to find D435</option></select></label>
+        <label>RGB input <span class="muted">auto / recommended</span><select id="rgbDevice"><option value="">None</option></select></label>
+        <div class="row"><button id="refreshBtn">Refresh USB</button><button id="startBtn" class="primary">Start SLAM</button></div><p class="hint"><a href="./legacy-depth-float-probe.html" style="color:#58a6ff">Open original verified Depth/Z16 probe</a> · <a href="./d435-profile-sweep.html" style="color:#58a6ff">UVC profile sweep</a></p>
+        <p id="cameraState" class="hint">Desktop Chrome/Edge recommended. Camera permission is required. D435 RGB is auto-selected when available and is used for feature matching.</p><p class="hint">D435 normal USB3 identity: <code>8086:0B07</code>. If <code>8086:0AD6</code> appears, the camera is in D400/USB2 fallback mode; reconnect using USB 3.x.</p>
+      </section>
+      <section>
+        <h2>Localization</h2>
+        <div class="pose-grid">
+          <div><span>X</span><strong id="posX">+0.000 m</strong></div><div><span>Y</span><strong id="posY">+0.000 m</strong></div><div><span>Z</span><strong id="posZ">+0.000 m</strong></div>
+          <div><span>Roll</span><strong id="roll">+0.00°</strong></div><div><span>Pitch</span><strong id="pitch">+0.00°</strong></div><div><span>Yaw</span><strong id="yaw">+0.00°</strong></div>
+        </div>
+        <div class="row"><button id="resetOriginBtn">Reset origin</button><button id="resetMapBtn">Reset map</button></div>
+      </section>
+      <section>
+        <h2>Persistent map</h2>
+        <div class="row"><button id="buildMapBtn" class="primary">Build / Extend Map</button><button id="localizeModeBtn">Localization Mode</button></div>
+        <div class="row"><button id="saveMapBtn">Save Map</button><button id="loadMapBtn">Load Map</button><input id="loadMapInput" type="file" accept=".json,application/json" hidden></div>
+        <p id="mapState" class="hint">BUILD mode: move through the area once to create keyframes. When you revisit a known place, the pose is anchored back to the stored map coordinates.</p>
+        <p class="hint">After mapping, save the map. Loading a saved map automatically switches to Localization Mode. “Reset origin” changes only the displayed origin; leave it untouched when you want fixed map coordinates.</p>
+      </section>
+      <section>
+        <h2>Tracking health</h2>
+        <dl class="readouts">
+          <div><dt>State</dt><dd id="trackingState">WAITING</dd></div><div><dt>Camera</dt><dd id="cameraFps">0.0 Hz</dd></div>
+          <div><dt>SLAM</dt><dd id="slamHz">0.0 Hz</dd></div><div><dt>Compute</dt><dd id="computeMs">0.0 ms</dd></div>
+          <div><dt>Dropped</dt><dd id="dropped">0</dd></div><div><dt>Inliers</dt><dd id="inliers">0</dd></div>
+          <div><dt>ICP RMSE</dt><dd id="rmse">—</dd></div><div><dt>Keyframes</dt><dd id="keyframes">0</dd></div>
+          <div><dt>Loops</dt><dd id="loops">0</dd></div><div><dt>Relocalized</dt><dd id="relocalized">0</dd></div>
+          <div><dt>Map mode</dt><dd id="mapModeValue">BUILD</dd></div><div><dt>Map locks</dt><dd id="mapMatches">0</dd></div>
+          <div><dt>Map rejects</dt><dd id="mapRejects">0</dd></div><div><dt>Map repairs</dt><dd id="mapRepairs">0</dd></div>
+          <div><dt>Trusted frame</dt><dd id="trustedFrame">0</dd></div><div><dt>Repair scope</dt><dd>SINCE TRUSTED</dd></div>
+          <div><dt>Static gate</dt><dd id="staticState">0/4</dd></div><div><dt>Block Depth Δ med/p90</dt><dd id="staticDepth">—</dd></div>
+          <div><dt>Block close ≤10mm</dt><dd id="staticRatio">0%</dd></div><div><dt>ICP Δ</dt><dd id="staticOdom">—</dd></div>
+          <div><dt>RGB static match</dt><dd id="staticRgb">—</dd></div><div><dt>RGB sample</dt><dd id="rgbFresh">HOLD</dd></div>
+          <div><dt>Learned Depth noise</dt><dd id="staticNoise">—</dd></div><div><dt>Adaptive Depth gate</dt><dd id="staticGateDepth">—</dd></div>
+          <div><dt>STATIC latch</dt><dd id="staticLatch">FREE</dd></div><div><dt>Move score</dt><dd id="staticMove">0 · exit 0/2</dd></div>
+          <div><dt>Static action</dt><dd>FREEZE POSE</dd></div><div><dt>Static votes</dt><dd>FRESH RGB ONLY</dd></div>
+          <div><dt>Lock gate</dt><dd>STRICT</dd></div><div><dt>Repair</dt><dd>ON RELOCALIZE</dd></div>
+          <div><dt>RGB features</dt><dd id="rgbFeatures">0</dd></div><div><dt>RGB matches</dt><dd id="rgbMatches">0</dd></div>
+          <div><dt>RGB geom inliers</dt><dd id="rgbInliers">0</dd></div><div><dt>Confirm</dt><dd id="confirmHits">0</dd></div>
+          <div><dt>Map verifier</dt><dd>RGB + Depth × 2</dd></div><div><dt>Recovery gate</dt><dd id="recoveryGate">FREE</dd></div>
+        </dl>
+      </section>
+      <section>
+        <h2>D435 calibration</h2>
+        <div class="grid2 compact">
+          <label>Depth scale<input id="depthScale" type="number" value="0.001" min="0.000001" step="0.000001"></label><label>Max range<input id="maxRange" type="number" value="4.0" min="0.5" max="10" step="0.1"></label>
+          <label>fx<input id="fx" type="number" value="381.902" step="0.001"></label><label>fy<input id="fy" type="number" value="381.902" step="0.001"></label>
+          <label>ppx<input id="ppx" type="number" value="318.229" step="0.001"></label><label>ppy<input id="ppy" type="number" value="239.945" step="0.001"></label>
+        </div>
+        <p class="hint">The 640×480 D430/D435 legacy preset is used by default. SLAM intrinsics are scaled automatically to 320×240.</p>
+      </section>
+      <section>
+        <h2>Performance</h2>
+        <div class="grid2 compact"><label>SLAM target Hz<input id="targetHz" type="number" value="15" min="5" max="30" step="1"></label><label>Max correspondence<input id="maxCorr" type="number" value="0.08" min="0.02" max="0.30" step="0.01"></label></div>
+        <div class="row"><button id="benchmarkBtn">Browser benchmark</button><button id="exportCsvBtn">Export trajectory</button></div>
+        <p id="benchmarkState" class="hint">Benchmark runs a synthetic 320×240 tracking workload before hardware testing.</p>
+      </section>
+    </aside>
+    <section class="workspace">
+      <div class="panel viewer-card"><div class="viewer-title"><strong>Depth tracking input</strong><span>GPU downsample 320×240</span></div><canvas id="depthCanvas" width="640" height="480"></canvas></div>
+      <div class="panel viewer-card"><div class="viewer-title"><strong>Localization trajectory</strong><span>map is internal; path is the primary output</span></div><canvas id="trajectoryCanvas" width="900" height="520"></canvas></div>
+      <div class="panel note"><strong>RGB + Depth persistent-map localization</strong><p>Normal odometry now includes an adaptive zero-motion gate. Fresh RGB samples are numbered so repeated descriptors cannot add votes. When RGB geometry and ICP indicate no motion, the D435 block-Depth noise floor is learned online and the Depth threshold adapts to that sensor/scene. Four consecutive fresh RGB confirmations freeze pose as STATIC. Once latched, map anchoring and odometry integration cannot move the pose; only confirmed real motion releases the latch. Each map keyframe stores metric Depth plus RGB corner features and 128-bit local descriptors. Revisits are ranked by RGB appearance, checked for 2D geometric consistency, then verified by forward + reverse 3D Depth ICP. Large pose corrections require strong RGB geometry plus low Depth error. Recovery and medium/large loop closures must match the same keyframe twice before the pose is moved. Once tracking is LOST, odometry alone is not allowed to resume: a verified map match is required. When relocalization succeeds in BUILD mode, only the untrusted segment created since the last accepted map anchor is rigidly repaired back into the matched map frame. Earlier trusted keyframes are left untouched. If RGB is active, recovery never falls back to Depth-only because of a temporarily weak RGB frame. A verified revisit anchors the current 6DoF pose back to the stored map coordinates. Save Map preserves both Depth and RGB features.</p></div>
+      <div class="panel log-card">
+        <div class="viewer-title">
+          <div><strong>Diagnostic log</strong><span id="logCount">0 lines</span></div>
+          <div class="row log-actions"><button id="copyLogBtn">Copy log</button><button id="clearLogBtn">Clear</button></div>
+        </div>
+        <pre id="diagnosticLog" aria-label="Diagnostic log"></pre>
+        <p id="copyLogState" class="hint">Camera, SLAM state changes, loop/relocalization events, benchmark results, and errors are recorded here.</p>
+      </div>
+    </section>
+  </main>
+  <footer>D435 Depth + RGB → RGB feature matching → bidirectional Depth ICP → persistent-map anchor → 6DoF pose</footer>
+  <script type="module" src="src/main-build-20260925-18.js"></script>
+</body>
+</html>
