@@ -1,3 +1,16 @@
+## Build 20260925.26 — STATIC map relock
+
+Build 26 fixes a structural issue found in the build-25 hardware log: while STATIC was latched, odometry was frozen correctly, but persistent-map matching was also disabled. That meant the camera could return to a known place, stop, and remain frozen at the last odometry pose without another opportunity to relocalize.
+
+Changes:
+
+- STATIC still freezes frame-to-frame pose integration;
+- STATIC still blocks new keyframes;
+- persistent-map matching now continues at low rate while STATIC;
+- accepted STATIC map matches can update the pose and trusted anchor;
+- diagnostics expose STATIC map checks / locks;
+- build-25 cumulative T265 motion gating and duplicate-keyframe suppression remain active.
+
 ## Build 20260925.25 — cumulative T265 STATIC gate
 
 Build 25 addresses the build-24 hardware log where the camera was physically stationary but RGB geometry alone repeatedly released the STATIC latch and created a duplicate start-location keyframe.
