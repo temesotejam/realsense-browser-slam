@@ -27,6 +27,8 @@ jobs:
           node --check src/depth-source.js
           node --check src/render.js
           node --check src/slam-worker.js
+          node --check src/main-build-20260925-4.js
+          node --check src/legacy-depth-source-build-20260925-4.js
       - uses: actions/configure-pages@v5
         with:
           enablement: true
