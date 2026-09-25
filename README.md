@@ -1,3 +1,21 @@
+## Build 20260925.27 — absolute T265 map prior
+
+Build 27 addresses two issues observed in the build-26 hardware log:
+
+- STATIC map confirmation counters were being cleared on every frozen frame, so a 3-frame T265-assisted confirmation could never complete while stationary.
+- LOST recovery could still accept a globally wrong keyframe when local RGB/T265 agreement looked plausible.
+
+Changes:
+
+- pending map confirmations now persist across STATIC frames;
+- the first keyframe's T265 snapshot defines a session-local origin-relative pose prior;
+- every map candidate is compared against that absolute T265 map prior;
+- very large recovery corrections require RGB identity, Depth/T265 agreement, keyframe proximity, and tight absolute T265-map consistency;
+- large T265-assisted normal map locks also require absolute map consistency;
+- diagnostics expose the accepted anchor's absolute T265-map error.
+
+The persistent RGB-D map remains the authoritative coordinate system; T265 remains a prior/consistency source rather than the final map pose.
+
 ## Build 20260925.26 — STATIC map relock
 
 Build 26 fixes a structural issue found in the build-25 hardware log: while STATIC was latched, odometry was frozen correctly, but persistent-map matching was also disabled. That meant the camera could return to a known place, stop, and remain frozen at the last odometry pose without another opportunity to relocalize.
