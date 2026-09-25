@@ -11,7 +11,7 @@ onmessage=e=>{const m=e.data;
   if(m.type==='frame')processFrame(m);
 };
 function reset(){prev=null;pose=I();lastRel=I();frame=0;keyframes=[];loops=0;relocalized=0;lostCount=0;lastTime=0;slamHz=0;path=[];keyframePath=[];mapMode='mapping';mapMatches=0;lastMapMatchFrame=-999;mapRevision++;}
-function resetTracking(){prev=null;pose=I();lastRel=I();frame=keyframes.reduce((n,q)=>Math.max(n,q.frame||0),0)+1;lostCount=0;lastTime=0;slamHz=0;path=[];keyframePath=keyframes.map(q=>({x:q.pose[3],y:q.pose[7],z:q.pose[11]}));lastMapMatchFrame=-999;}
+function resetTracking(){prev=null;pose=I();lastRel=I();frame=keyframes.reduce((n,q)=>Math.max(n,q.frame||0),0)+1;lostCount=0;lastTime=0;slamHz=0;path=[];keyframePath=keyframes.map(q=>({x:q.pose[3],y:q.pose[7],z:q.pose[11]}));lastMapMatchFrame=-999;mapMatches=0;}
 
 function processFrame(m){
   const t0=performance.now(),depth=new Float32Array(m.depth),rgb=m.rgb?new Uint8Array(m.rgb):null,maxCorr=m.maxCorr||.08;
@@ -68,7 +68,7 @@ function addKeyframe(depth,rgb,T){
 }
 function findMapMatch(depth,rgb,maxCorr,recovery){
   if(!keyframes.length)return null;
-  const desc=depthDesc(depth),cand=[],threshold=recovery?.30:.20;
+  const desc=depthDesc(depth),cand=[],threshold=recovery ? 0.30 : 0.20;
   for(const q of keyframes){
     if(mapMode==='mapping'&&!recovery&&frame-(q.frame||0)<45)continue;
     const ds=descDist(desc,q.dd),rs=(rgb&&q.rgb)?rgbDist(rgb,q.rgb):.5,score=ds*.82+rs*.18;
@@ -77,13 +77,13 @@ function findMapMatch(depth,rgb,maxCorr,recovery){
   cand.sort((a,b)=>a[0]-b[0]);
   let best=null,bestQuality=-Infinity;
   for(const [score,q] of cand.slice(0,recovery?8:5)){
-    const r=track(depth,q.depth,I(),Math.max(recovery?.14:.11,maxCorr*(recovery?1.8:1.45)),recovery?[16,10,6,4]:[14,9,5,4],recovery?[5,5,6,6]:[4,4,5,5]);
-    const minIn=recovery?120:190,maxRmse=recovery?.055:.040;
+    const r=track(depth,q.depth,I(),Math.max(recovery ? 0.14 : 0.11,maxCorr*(recovery?1.8:1.45)),recovery?[16,10,6,4]:[14,9,5,4],recovery?[5,5,6,6]:[4,4,5,5]);
+    const minIn=recovery?120:190,maxRmse=recovery ? 0.055 : 0.040;
     if(!r.ok||r.inliers<minIn||r.rmse>maxRmse)continue;
     const back=track(q.depth,depth,inv(r.T),Math.max(.12,maxCorr*1.55),[16,9,5],[3,4,5]);
-    if(!back.ok||back.inliers<(recovery?90:130)||back.rmse>(recovery?.065:.052))continue;
+    if(!back.ok||back.inliers<(recovery?90:130)||back.rmse>(recovery ? 0.065 : 0.052))continue;
     const cyc=mul(back.T,r.T);
-    if(trans(cyc)>(recovery?.10:.065)||rot(cyc)>(recovery?10:6)*Math.PI/180)continue;
+    if(trans(cyc)>(recovery ? 0.10 : 0.065)||rot(cyc)>(recovery?10:6)*Math.PI/180)continue;
     const quality=r.inliers/(1+r.rmse*90+score*4);
     if(quality>bestQuality){bestQuality=quality;best={pose:mul(q.pose,r.T),inliers:r.inliers,rmse:r.rmse,anchorFrame:q.frame,score};}
   }
