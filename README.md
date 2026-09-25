@@ -1,3 +1,16 @@
+## Build 20260925.22 — T265 relative-pose guard / bridge
+
+Build 22 addresses the first build-21 hardware log:
+
+- the first map keyframe is created immediately, before the initial STATIC latch, so the starting location is the trusted map origin;
+- T265 relative XYZ is used only as a short-term frame-to-frame motion guard, not as the persistent map coordinate system;
+- if Depth ICP translation disagrees strongly with T265 during a large turn, the tracker temporarily enters `T265_BRIDGE` instead of immediately entering LOST;
+- no new keyframes are created during `T265_BRIDGE`;
+- the large-rotation sanity gate is relaxed only for verified T265 bridge motion;
+- Pause → Resume no longer resets the tracking session or forces map recovery.
+
+Persistent RGB+Depth map locking remains authoritative for long-term absolute coordinates.
+
 
 ## Build 20260925.21 — D435 + T265 Sensor Hub fusion
 
