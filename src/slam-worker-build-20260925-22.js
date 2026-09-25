@@ -134,7 +134,7 @@ function processFrame(m){
       staticRefDepth=sig.slice();staticRefRgb=cloneRgb(rgb);staticLastRgbSeq=rgbSeq;
     }
     const staticHold=!staticLatched&&staticStreak>=STATIC_STREAK_N&&odom.ok&&odomTrans<=.030&&odomRot<=2.5*Math.PI/180;
-    const sane=odom.ok&&odomTrans<.25&&odomRot<25*Math.PI/180;
+    const sane=odom.ok&&(t265Bridge?(odomTrans<.60&&odomRot<95*Math.PI/180):(odomTrans<.25&&odomRot<25*Math.PI/180));
     if(staticLatched&&!needsMapRecovery){
       // already frozen above; do not run odometry integration or map anchoring
     }else if(staticHold&&!needsMapRecovery){
