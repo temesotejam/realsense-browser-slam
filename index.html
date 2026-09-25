@@ -14,7 +14,7 @@
       <h1>D435 Browser Localization SLAM</h1>
       <p>LEGACY VERIFIED DEPTH INPUT + persistent keyframe map + map anchoring + relocalization. No RealSense SDK, Python, ROS, or local server.</p>
     </div>
-    <div class="build-status"><div id="statusBadge" class="badge idle">IDLE</div><span class="build-id">build 20260925.10</span></div>
+    <div class="build-status"><div id="statusBadge" class="badge idle">IDLE</div><span class="build-id">build 20260925.11</span></div>
   </header>
   <main class="layout">
     <aside class="sidebar panel">
@@ -51,7 +51,8 @@
           <div><dt>Map mode</dt><dd id="mapModeValue">BUILD</dd></div><div><dt>Map locks</dt><dd id="mapMatches">0</dd></div>
           <div><dt>Map rejects</dt><dd id="mapRejects">0</dd></div><div><dt>Lock gate</dt><dd>STRICT</dd></div>
           <div><dt>RGB features</dt><dd id="rgbFeatures">0</dd></div><div><dt>RGB matches</dt><dd id="rgbMatches">0</dd></div>
-          <div><dt>RGB geom inliers</dt><dd id="rgbInliers">0</dd></div><div><dt>Map verifier</dt><dd>RGB + Depth</dd></div>
+          <div><dt>RGB geom inliers</dt><dd id="rgbInliers">0</dd></div><div><dt>Confirm</dt><dd id="confirmHits">0</dd></div>
+          <div><dt>Map verifier</dt><dd>RGB + Depth × 2</dd></div><div><dt>Recovery</dt><dd>CONFIRMED</dd></div>
         </dl>
       </section>
       <section>
@@ -73,7 +74,7 @@
     <section class="workspace">
       <div class="panel viewer-card"><div class="viewer-title"><strong>Depth tracking input</strong><span>GPU downsample 320×240</span></div><canvas id="depthCanvas" width="640" height="480"></canvas></div>
       <div class="panel viewer-card"><div class="viewer-title"><strong>Localization trajectory</strong><span>map is internal; path is the primary output</span></div><canvas id="trajectoryCanvas" width="900" height="520"></canvas></div>
-      <div class="panel note"><strong>RGB + Depth persistent-map localization</strong><p>Each map keyframe stores metric Depth plus RGB corner features and 128-bit local descriptors. Revisits are ranked by RGB appearance, checked for 2D geometric consistency, then verified by forward + reverse 3D Depth ICP. Large pose corrections require strong RGB geometry plus low Depth error; weak candidates are rejected rather than moving the map. A verified revisit anchors the current 6DoF pose back to the stored map coordinates. Save Map preserves both Depth and RGB features.</p></div>
+      <div class="panel note"><strong>RGB + Depth persistent-map localization</strong><p>Each map keyframe stores metric Depth plus RGB corner features and 128-bit local descriptors. Revisits are ranked by RGB appearance, checked for 2D geometric consistency, then verified by forward + reverse 3D Depth ICP. Large pose corrections require strong RGB geometry plus low Depth error. Recovery and medium/large loop closures must match the same keyframe twice before the pose is moved; weak one-frame candidates are rejected. A verified revisit anchors the current 6DoF pose back to the stored map coordinates. Save Map preserves both Depth and RGB features.</p></div>
       <div class="panel log-card">
         <div class="viewer-title">
           <div><strong>Diagnostic log</strong><span id="logCount">0 lines</span></div>
@@ -85,6 +86,6 @@
     </section>
   </main>
   <footer>D435 Depth + RGB → RGB feature matching → bidirectional Depth ICP → persistent-map anchor → 6DoF pose</footer>
-  <script type="module" src="src/main-build-20260925-10.js"></script>
+  <script type="module" src="src/main-build-20260925-11.js"></script>
 </body>
 </html>
