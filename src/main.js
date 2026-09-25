@@ -1,6 +1,6 @@
-import {RealSenseSource} from './depth-source.js';
-import {drawDepth,TrajectoryRenderer} from './render.js';
-const $=id=>document.getElementById(id);const source=new RealSenseSource();const trajView=new TrajectoryRenderer($('trajectoryCanvas'));const worker=new Worker(new URL('./slam-worker.js',import.meta.url),{type:'classic'});
+import {RealSenseSource} from './depth-source.js?v=20260925.1';
+import {drawDepth,TrajectoryRenderer} from './render.js?v=20260925.1';
+const $=id=>document.getElementById(id);const source=new RealSenseSource();const trajView=new TrajectoryRenderer($('trajectoryCanvas'));const worker=new Worker(new URL('./slam-worker.js?v=20260925.1',import.meta.url),{type:'classic'});
 let running=false,busy=false,dropped=0,lastSent=0,lastRgbDesc=null,lastRgbDescAt=0,frameCb=null,path=[],keyframePath=[],originMatrix=null,trajectoryRows=[];
 let diagnosticLines=[],lastTrackingState='',lastHealthLogAt=0,lastLoggedLoops=0,lastLoggedRelocalized=0,lastLoggedKeyframes=0;
 source.setLogger((level,message)=>log(level,message));
@@ -41,6 +41,7 @@ function formatReason(r){if(r instanceof Error)return `${r.name}: ${r.message}`;
 let warnedProfile='';
 function logOnceProfileWarning(w,h){const k=`${w}x${h}`;if(k===warnedProfile)return;warnedProfile=k;log('WARN',`Depth stream is ${k}, not 640x480. Intrinsics are being scaled from the 640x480 D435 preset; metric accuracy is provisional until per-profile calibration is supplied.`);}
 function fmtRmse(v){return Number.isFinite(v)?`${(v*1000).toFixed(1)}mm`:'n/a';}
+log('INFO',`Build=20260925.1`);
 log('INFO',`Page loaded. UA=${navigator.userAgent}`);
 log('INFO',`Capabilities: getUserMedia=${!!navigator.mediaDevices?.getUserMedia} WebGL2=${!!document.createElement('canvas').getContext('webgl2')} Worker=${typeof Worker!=='undefined'} clipboard=${!!navigator.clipboard}`);
 refresh();
