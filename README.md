@@ -1,3 +1,17 @@
+## Build 20260925.24 — near-keyframe T265 map identity
+
+Build 24 tightens map locking after the build-23 hardware log showed a large correction could be accepted against the wrong keyframe.
+
+Changes:
+
+- T265 keyframe-to-current distance/rotation is used to rank map candidates before ICP;
+- the original trusted origin keyframe is forced into the candidate set when T265 says the camera is physically near it;
+- T265 may initialize ICP, but it may no longer relax place identity by itself;
+- large T265-assisted corrections require RGB identity, Depth agreement, T265/Depth consistency, and physical proximity to the candidate keyframe;
+- T265-assisted large corrections require three consecutive confirmations instead of two;
+- diagnostics expose the accepted anchor keyframe and its T265 proximity;
+- T265 snapshots stored in saved map files are not reused after loading because the T265 world origin is session-local.
+
 ## Build 20260925.23 — T265-seeded map matching
 
 Build 23 extends the T265 integration from short-term tracking into map verification:
