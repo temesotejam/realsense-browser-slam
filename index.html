@@ -14,7 +14,7 @@
       <h1>D435 Browser Localization SLAM</h1>
       <p>LEGACY VERIFIED DEPTH INPUT + persistent keyframe map + map anchoring + relocalization. No RealSense SDK, Python, ROS, or local server.</p>
     </div>
-    <div class="build-status"><div id="statusBadge" class="badge idle">IDLE</div><span class="build-id">build 20260925.17</span></div>
+    <div class="build-status"><div id="statusBadge" class="badge idle">IDLE</div><span class="build-id">build 20260925.18</span></div>
   </header>
   <main class="layout">
     <aside class="sidebar panel">
@@ -55,6 +55,7 @@
           <div><dt>Block close ≤10mm</dt><dd id="staticRatio">0%</dd></div><div><dt>ICP Δ</dt><dd id="staticOdom">—</dd></div>
           <div><dt>RGB static match</dt><dd id="staticRgb">—</dd></div><div><dt>RGB sample</dt><dd id="rgbFresh">HOLD</dd></div>
           <div><dt>Learned Depth noise</dt><dd id="staticNoise">—</dd></div><div><dt>Adaptive Depth gate</dt><dd id="staticGateDepth">—</dd></div>
+          <div><dt>STATIC latch</dt><dd id="staticLatch">FREE</dd></div><div><dt>Move score</dt><dd id="staticMove">0 · exit 0/2</dd></div>
           <div><dt>Static action</dt><dd>FREEZE POSE</dd></div><div><dt>Static votes</dt><dd>FRESH RGB ONLY</dd></div>
           <div><dt>Lock gate</dt><dd>STRICT</dd></div><div><dt>Repair</dt><dd>ON RELOCALIZE</dd></div>
           <div><dt>RGB features</dt><dd id="rgbFeatures">0</dd></div><div><dt>RGB matches</dt><dd id="rgbMatches">0</dd></div>
@@ -81,7 +82,7 @@
     <section class="workspace">
       <div class="panel viewer-card"><div class="viewer-title"><strong>Depth tracking input</strong><span>GPU downsample 320×240</span></div><canvas id="depthCanvas" width="640" height="480"></canvas></div>
       <div class="panel viewer-card"><div class="viewer-title"><strong>Localization trajectory</strong><span>map is internal; path is the primary output</span></div><canvas id="trajectoryCanvas" width="900" height="520"></canvas></div>
-      <div class="panel note"><strong>RGB + Depth persistent-map localization</strong><p>Normal odometry now includes an adaptive zero-motion gate. Fresh RGB samples are numbered so repeated descriptors cannot add votes. When RGB geometry and ICP indicate no motion, the D435 block-Depth noise floor is learned online and the Depth threshold adapts to that sensor/scene. Four consecutive fresh RGB confirmations freeze pose as STATIC. Each map keyframe stores metric Depth plus RGB corner features and 128-bit local descriptors. Revisits are ranked by RGB appearance, checked for 2D geometric consistency, then verified by forward + reverse 3D Depth ICP. Large pose corrections require strong RGB geometry plus low Depth error. Recovery and medium/large loop closures must match the same keyframe twice before the pose is moved. Once tracking is LOST, odometry alone is not allowed to resume: a verified map match is required. When relocalization succeeds in BUILD mode, only the untrusted segment created since the last accepted map anchor is rigidly repaired back into the matched map frame. Earlier trusted keyframes are left untouched. If RGB is active, recovery never falls back to Depth-only because of a temporarily weak RGB frame. A verified revisit anchors the current 6DoF pose back to the stored map coordinates. Save Map preserves both Depth and RGB features.</p></div>
+      <div class="panel note"><strong>RGB + Depth persistent-map localization</strong><p>Normal odometry now includes an adaptive zero-motion gate. Fresh RGB samples are numbered so repeated descriptors cannot add votes. When RGB geometry and ICP indicate no motion, the D435 block-Depth noise floor is learned online and the Depth threshold adapts to that sensor/scene. Four consecutive fresh RGB confirmations freeze pose as STATIC. Once latched, map anchoring and odometry integration cannot move the pose; only confirmed real motion releases the latch. Each map keyframe stores metric Depth plus RGB corner features and 128-bit local descriptors. Revisits are ranked by RGB appearance, checked for 2D geometric consistency, then verified by forward + reverse 3D Depth ICP. Large pose corrections require strong RGB geometry plus low Depth error. Recovery and medium/large loop closures must match the same keyframe twice before the pose is moved. Once tracking is LOST, odometry alone is not allowed to resume: a verified map match is required. When relocalization succeeds in BUILD mode, only the untrusted segment created since the last accepted map anchor is rigidly repaired back into the matched map frame. Earlier trusted keyframes are left untouched. If RGB is active, recovery never falls back to Depth-only because of a temporarily weak RGB frame. A verified revisit anchors the current 6DoF pose back to the stored map coordinates. Save Map preserves both Depth and RGB features.</p></div>
       <div class="panel log-card">
         <div class="viewer-title">
           <div><strong>Diagnostic log</strong><span id="logCount">0 lines</span></div>
@@ -93,6 +94,6 @@
     </section>
   </main>
   <footer>D435 Depth + RGB → RGB feature matching → bidirectional Depth ICP → persistent-map anchor → 6DoF pose</footer>
-  <script type="module" src="src/main-build-20260925-17.js"></script>
+  <script type="module" src="src/main-build-20260925-18.js"></script>
 </body>
 </html>
