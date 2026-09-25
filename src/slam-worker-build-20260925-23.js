@@ -290,7 +290,7 @@ function findLocalAnchor(depth,poseGuessWorld,maxCorr){
     const tinit=t265FromKeyframe(q);
     const initial=tinit||rel(q.pose,poseGuessWorld);
     const initM=trans(initial),initDeg=rot(initial)*180/Math.PI;
-    if(initM>(tinit?1.80:(trusted?.80:.55))||initDeg>(tinit?120:(trusted?45:35)))continue;
+    if(initM>(tinit?1.80:(trusted?0.80:0.55))||initDeg>(tinit?120:(trusted?45:35)))continue;
     const r=track(depth,q.depth,initial,Math.max(trusted ? .12 : .10,maxCorr*(trusted?1.5:1.3)),trusted?[14,9,5,4]:[12,7,4],trusted?[4,4,5,5]:[3,4,5]);
     if(!r.ok||r.inliers<(trusted?220:180)||r.rmse>(trusted ? .043 : .040))continue;
     const cyc=rel(initial,r.T),corrM=trans(cyc),corrDeg=rot(cyc)*180/Math.PI;
