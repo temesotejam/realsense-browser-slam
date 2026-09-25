@@ -14,7 +14,7 @@
       <h1>D435 Browser Localization SLAM</h1>
       <p>LEGACY VERIFIED DEPTH INPUT + keyframes + loop correction + relocalization. No RealSense SDK, Python, ROS, or local server.</p>
     </div>
-    <div class="build-status"><div id="statusBadge" class="badge idle">IDLE</div><span class="build-id">build 20260925.6</span></div>
+    <div class="build-status"><div id="statusBadge" class="badge idle">IDLE</div><span class="build-id">build 20260925.7</span></div>
   </header>
   <main class="layout">
     <aside class="sidebar panel">
@@ -23,7 +23,7 @@
         <label>Depth input<select id="depthDevice"><option value="">Refresh to find D435</option></select></label>
         <label>RGB input <span class="muted">optional</span><select id="rgbDevice"><option value="">None</option></select></label>
         <div class="row"><button id="refreshBtn">Refresh USB</button><button id="startBtn" class="primary">Start SLAM</button></div><p class="hint"><a href="./legacy-depth-float-probe.html" style="color:#58a6ff">Open original verified Depth/Z16 probe</a> · <a href="./d435-profile-sweep.html" style="color:#58a6ff">UVC profile sweep</a></p>
-        <p id="cameraState" class="hint">Desktop Chrome/Edge recommended. Camera permission is required.</p>
+        <p id="cameraState" class="hint">Desktop Chrome/Edge recommended. Camera permission is required.</p><p class="hint">D435 normal USB3 identity: <code>8086:0B07</code>. If <code>8086:0AD6</code> appears, the camera is in D400/USB2 fallback mode; reconnect using USB 3.x.</p>
       </section>
       <section>
         <h2>Localization</h2>
@@ -74,6 +74,6 @@
     </section>
   </main>
   <footer>D435 UVC → WebGL2 R32F → GPU downsample → Web Worker ICP → keyframes / loop correction → 6DoF pose</footer>
-  <script type="module" src="src/main-build-20260925-6.js"></script>
+  <script type="module" src="src/main-build-20260925-7.js"></script>
 </body>
 </html>
