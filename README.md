@@ -1,3 +1,18 @@
+## Build 20260925.25 — cumulative T265 STATIC gate
+
+Build 25 addresses the build-24 hardware log where the camera was physically stationary but RGB geometry alone repeatedly released the STATIC latch and created a duplicate start-location keyframe.
+
+Changes:
+
+- STATIC stores the T265 pose at latch time and measures cumulative translation/rotation from that pose;
+- RGB translation, rotation and scale are treated as one RGB motion source, not three independent votes;
+- ICP/RGB jitter cannot release STATIC while cumulative T265 still says the camera is stationary unless Depth geometry also corroborates motion;
+- slow real motion can still release STATIC because cumulative T265 and Depth-from-latch grow over time;
+- keyframe creation is suppressed when T265 says an existing keyframe is within 6 cm and 4 degrees;
+- diagnostics expose T265 motion since STATIC and the independent motion-source votes.
+
+The map-matching safeguards from build 24 remain unchanged.
+
 ## Build 20260925.24 — near-keyframe T265 map identity
 
 Build 24 tightens map locking after the build-23 hardware log showed a large correction could be accepted against the wrong keyframe.
