@@ -72,6 +72,8 @@ jobs:
           node --check src/slam-worker-build-20260925-24.js
           node --check src/main-build-20260925-25.js
           node --check src/slam-worker-build-20260925-25.js
+          node --check src/main-build-20260925-26.js
+          node --check src/slam-worker-build-20260925-26.js
           node --check src/rgb-feature-source-build-20260925-21.js
           node --check src/main-build-20260925-21.js
           node --check src/slam-worker-build-20260925-21.js
