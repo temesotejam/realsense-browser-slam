@@ -47,7 +47,7 @@ function processFrame(m){
         const rgbStable=rr.matches>=12&&rr.inliers>=9&&rr.ratio>=.65&&rr.error<=6.5&&staticRgbMotionPx<=.60&&staticRgbAngleDeg<=.35&&Math.abs((rr.scale??1)-1)<=.008;
         const odomSmall=odom.ok&&odomTrans<=.015&&odomRot<=.8*Math.PI/180;
         if(rgbStable&&odomSmall&&Number.isFinite(ds.median)&&ds.median<.025&&ds.p90<.060){
-          const a=depthNoiseSamples<4?.35:.12;
+          const a=depthNoiseSamples<4 ? .35 : .12;
           depthNoiseMed=depthNoiseMed*(1-a)+ds.median*a;
           depthNoiseP90=depthNoiseP90*(1-a)+ds.p90*a;
           depthNoiseSamples++;
