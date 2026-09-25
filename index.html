@@ -63,6 +63,14 @@
       <div class="panel viewer-card"><div class="viewer-title"><strong>Depth tracking input</strong><span>GPU downsample 320×240</span></div><canvas id="depthCanvas" width="640" height="480"></canvas></div>
       <div class="panel viewer-card"><div class="viewer-title"><strong>Localization trajectory</strong><span>map is internal; path is the primary output</span></div><canvas id="trajectoryCanvas" width="900" height="520"></canvas></div>
       <div class="panel note"><strong>v0.2 scope</strong><p>Metric tracking is Depth-first. Keyframes provide local-map anchoring, loop candidates are checked against past keyframes, and LOST tracking attempts relocalization. Loop correction is lightweight trajectory correction rather than a full nonlinear pose-graph optimizer.</p></div>
+      <div class="panel log-card">
+        <div class="viewer-title">
+          <div><strong>Diagnostic log</strong><span id="logCount">0 lines</span></div>
+          <div class="row log-actions"><button id="copyLogBtn">Copy log</button><button id="clearLogBtn">Clear</button></div>
+        </div>
+        <pre id="diagnosticLog" aria-label="Diagnostic log"></pre>
+        <p id="copyLogState" class="hint">Camera, SLAM state changes, loop/relocalization events, benchmark results, and errors are recorded here.</p>
+      </div>
     </section>
   </main>
   <footer>D435 UVC → WebGL2 R32F → GPU downsample → Web Worker ICP → keyframes / loop correction → 6DoF pose</footer>
