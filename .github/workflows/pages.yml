@@ -33,6 +33,7 @@ jobs:
           node --check src/legacy-depth-source-build-20260925-5.js
           node --check src/main-build-20260925-6.js
           node --check src/legacy-depth-source-build-20260925-6.js
+          node --check src/main-build-20260925-7.js
       - uses: actions/configure-pages@v5
         with:
           enablement: true
