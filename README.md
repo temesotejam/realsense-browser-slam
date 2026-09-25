@@ -1,3 +1,15 @@
+## Build 20260925.23 — T265-seeded map matching
+
+Build 23 extends the T265 integration from short-term tracking into map verification:
+
+- every newly-created keyframe stores the contemporaneous T265 pose snapshot;
+- local keyframe ICP and global map-match ICP can initialize from the T265 keyframe-to-current relative pose instead of identity;
+- large map corrections can be accepted with moderate RGB evidence when Depth ICP and T265 agree;
+- the starting keyframe is still the trusted map origin;
+- initial STATIC can snap back to the origin keyframe when T265 confirms the camera remained within 5 cm / 3 degrees.
+
+T265 is still not used as the persistent map coordinate system. It supplies relative motion and a consistency check; RGB+Depth map locks remain authoritative for long-term coordinates.
+
 ## Build 20260925.22 — T265 relative-pose guard / bridge
 
 Build 22 addresses the first build-21 hardware log:
