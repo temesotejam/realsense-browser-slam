@@ -1,3 +1,16 @@
+
+## Build 20260925.21 — D435 + T265 Sensor Hub fusion
+
+The current build embeds the headless `realsense-web-viewer/sensor-hub.html` and automatically consumes:
+
+- corrected 320×240 D435 Z16 Depth from the Sensor Hub,
+- T265 6DoF pose over WebUSB,
+- D435 RGB through a separate browser UVC stream for persistent-map feature matching.
+
+T265 absolute XYZ is not used in this first fusion stage. Instead, relative T265 orientation between Depth frames is converted into the D435 optical basis and used as the primary odometry rotation. D435 projective ICP still estimates metric translation, while persistent RGB+Depth map locking remains the long-term absolute-coordinate authority.
+
+The first map keyframe is now marked as the trusted origin immediately, fixing the build-20 case where a fresh session could create recent drifting keyframes before any globally trusted anchor existed.
+
 # D435 Browser SLAM
 
 Intel RealSense **D435を主対象**に、GitHub Pagesだけで6DoF位置姿勢を推定する実験プロジェクトです。
