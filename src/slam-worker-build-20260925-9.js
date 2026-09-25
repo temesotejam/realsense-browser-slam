@@ -93,9 +93,9 @@ function findMapMatch(depth,rgb,maxCorr,recovery){
   for(const c of pre.slice(0,recovery?9:6)){
     const q=c.q,e=c.rgbEval;
     if(e&&e.matches>=8){
-      const strong=e.inliers>=(recovery?6:8)&&e.ratio>=(recovery?.24:.30)&&e.error<=(recovery?8.0:6.5);
-      if(!strong&&c.ds>(recovery?.075:.055))continue;
-      if(e.inliers<3&&c.ds>(recovery?.045:.035))continue;
+      const strong=e.inliers>=(recovery?6:8)&&e.ratio>=(recovery ? .24 : .30)&&e.error<=(recovery?8.0:6.5);
+      if(!strong&&c.ds>(recovery ? .075 : .055))continue;
+      if(e.inliers<3&&c.ds>(recovery ? .045 : .035))continue;
     }
     const r=track(depth,q.depth,I(),Math.max(recovery?0.14:0.11,maxCorr*(recovery?1.8:1.45)),recovery?[16,10,6,4]:[14,9,5,4],recovery?[5,5,6,6]:[4,4,5,5]);
     const minIn=recovery?120:190,maxRmse=recovery?0.055:0.040;
