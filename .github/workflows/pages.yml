@@ -47,6 +47,8 @@ jobs:
           node --check src/slam-worker-build-20260925-12.js
           node --check src/main-build-20260925-13.js
           node --check src/slam-worker-build-20260925-13.js
+          node --check src/main-build-20260925-14.js
+          node --check src/slam-worker-build-20260925-14.js
       - uses: actions/configure-pages@v5
         with:
           enablement: true
