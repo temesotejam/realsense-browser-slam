@@ -15,6 +15,7 @@
 <section class="card">
 <strong>Before testing</strong>
 <p class="warn">Close Windows Camera, RealSense Viewer, Teams/Zoom, OBS, and any app that may be using a camera. A Depth pin can be exclusive.</p>
+<p class="muted">If all D435 profiles fail while the control camera passes, repeat this page in a Chrome instance launched with <code>--force-directshow</code>. Chromium still supports this switch for Windows capture troubleshooting.</p>
 <div class="actions">
 <button id="scan" class="primary">Run full sweep</button>
 <button id="copy">Copy log</button>
@@ -62,7 +63,7 @@ async function openStream(label,deviceId,extra={}){
     log(`  capabilityKeys=${Object.keys(caps).sort().join(',')||'(none)'}`);
     const ctx=control.getContext('2d',{willReadFrequently:true});control.width=preview.videoWidth;control.height=preview.videoHeight;ctx.drawImage(preview,0,0,control.width,control.height);
     const p=ctx.getImageData(control.width>>1,control.height>>1,1,1).data;log(`  8bit center=[${p[0]},${p[1]},${p[2]},${p[3]}]`);
-    const z=probeFloat(preview);if(z.ok)log(`  R32F SUCCESS likelyZ16=${z.likely} nonzero=${z.nonzero} min=${z.min} max=${z.max} residualMean=${z.residualMean}`);else log(`  R32F FAILED: ${z.reason}`);
+    const z=probeFloat(preview);if(z.ok)log(`  R32F SUCCESS likelyZ16=${z.likely} nonzero=${z.nonzero} min=${z.min} max=${z.max} residualMean=${z.residualMean} eightBitGridRatio=${z.eightBitGridRatio}`);else log(`  R32F FAILED: ${z.reason}`);
     return true;
   }catch(e){log(`OPEN FAILED ${label} after ${(performance.now()-t).toFixed(0)} ms — ${e.name}: ${e.message}`);stopActive();return false}
 }
@@ -76,7 +77,10 @@ function probeFloat(video){
   const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)return{ok:false,reason:'framebuffer incomplete'};
   const b=new Float32Array(w*h);while(gl.getError()!==gl.NO_ERROR){};gl.readPixels(0,0,w,h,gl.RED,gl.FLOAT,b);er=gl.getError();if(er!==gl.NO_ERROR)return{ok:false,reason:'readPixels 0x'+er.toString(16)};
   let n=0,nz=0,min=Infinity,max=-Infinity,res=0;for(const v of b){if(!Number.isFinite(v))continue;n++;if(v!==0)nz++;if(v<min)min=v;if(v>max)max=v;const x=v*65535;res+=Math.abs(x-Math.round(x))}
-  const residualMean=n?res/n:NaN;return{ok:true,nonzero:nz,min,max,residualMean,likely:nz>100&&min>=0&&max<=1.0001&&residualMean<.02};
+  let grid257=0,validZ=0;
+  for(const v of b){if(!Number.isFinite(v)||v===0)continue;const z=Math.round(v*65535);validZ++;const r=z%257;if(r===0||r===256)grid257++;}
+  const residualMean=n?res/n:NaN,eightBitGridRatio=validZ?grid257/validZ:1;
+  return{ok:true,nonzero:nz,min,max,residualMean,eightBitGridRatio,likely:nz>100&&min>=0&&max<=1.0001&&residualMean<.02&&eightBitGridRatio<.90};
 }
 async function run(){
   report='';logEl.textContent='';$('scan').disabled=true;stopActive();
