@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b0f14">
+<title>D435 UVC Profile Sweep</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:#0b0f14;color:#e6edf3}header{padding:22px 28px;border-bottom:1px solid #28313c}.eyebrow{color:#8b949e;font-size:11px;letter-spacing:.14em}h1{margin:5px 0}.wrap{max-width:1200px;margin:auto;padding:18px;display:grid;gap:14px}.card{background:#111820;border:1px solid #28313c;border-radius:12px;padding:16px}.warn{color:#d29922}.ok{color:#3fb950}.bad{color:#f85149}.muted{color:#8b949e}.actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}button,a{border:1px solid #3a4654;background:#18212b;color:#e6edf3;border-radius:8px;padding:9px 12px;text-decoration:none;cursor:pointer}button.primary{background:#1f6feb}button:disabled{opacity:.5}pre{margin:0;min-height:360px;max-height:65vh;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#070b10;border:1px solid #202a35;border-radius:9px;padding:12px;font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}video,canvas{width:100%;background:#000;border:1px solid #28313c;border-radius:8px}@media(max-width:800px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div class="eyebrow">D435 · WINDOWS UVC DIAGNOSTIC</div><h1>D435 UVC Profile Sweep</h1><div class="muted">build 20260925.profile1</div></header>
+<main class="wrap">
+<section class="card">
+<strong>Before testing</strong>
+<p class="warn">Close Windows Camera, RealSense Viewer, Teams/Zoom, OBS, and any app that may be using a camera. A Depth pin can be exclusive.</p>
+<div class="actions">
+<button id="scan" class="primary">Run full sweep</button>
+<button id="copy">Copy log</button>
+<button id="stop">Stop active stream</button>
+<a href="./build-20260925-5.html">Back to SLAM</a>
+</div>
+<p class="muted">The sweep first tests a normal non-RealSense camera, then tries D435 Depth profiles. It stops at the first profile that actually produces frames.</p>
+</section>
+<div class="grid">
+<section class="card"><strong>Live preview</strong><video id="preview" autoplay muted playsinline></video></section>
+<section class="card"><strong>8-bit control preview</strong><canvas id="control" width="640" height="480"></canvas></section>
+</div>
+<section class="card"><strong>Diagnostic log</strong><pre id="log">Ready.</pre></section>
+</main>
+<script>
+(()=>{
+const $=id=>document.getElementById(id), logEl=$('log'), preview=$('preview'), control=$('control');
+let report='',active=null;
+const profiles=[
+  ['deviceId-only',{}],
+  ['1280x720@30',{width:{exact:1280},height:{exact:720},frameRate:{exact:30}}],
+  ['848x480@90',{width:{exact:848},height:{exact:480},frameRate:{exact:90}}],
+  ['848x480@30',{width:{exact:848},height:{exact:480},frameRate:{exact:30}}],
+  ['640x480@30',{width:{exact:640},height:{exact:480},frameRate:{exact:30}}],
+  ['640x480@15',{width:{exact:640},height:{exact:480},frameRate:{exact:15}}],
+  ['640x360@30',{width:{exact:640},height:{exact:360},frameRate:{exact:30}}],
+  ['480x270@30',{width:{exact:480},height:{exact:270},frameRate:{exact:30}}],
+  ['424x240@30',{width:{exact:424},height:{exact:240},frameRate:{exact:30}}],
+  ['256x144@30',{width:{exact:256},height:{exact:144},frameRate:{exact:30}}],
+];
+function stamp(){return new Date().toISOString()}
+function log(s=''){report+=s+'\n';logEl.textContent=report;logEl.scrollTop=logEl.scrollHeight}
+function stopActive(){if(active){active.getTracks().forEach(t=>t.stop());active=null}preview.srcObject=null}
+function waitVideo(v,ms=7000){return new Promise((resolve,reject)=>{if(v.readyState>=2&&v.videoWidth)return resolve();const t=setTimeout(()=>reject(new Error('Timed out waiting for video frame')),ms);v.onloadeddata=()=>{clearTimeout(t);resolve()};v.onerror=()=>{clearTimeout(t);reject(new Error('Video element error'))}})}
+async function openStream(label,deviceId,extra={}){
+  stopActive();
+  const constraints={video:{deviceId:{exact:deviceId},...extra},audio:false};
+  const t=performance.now();log(`TRY ${label}: ${JSON.stringify(constraints.video)}`);
+  try{
+    const s=await navigator.mediaDevices.getUserMedia(constraints);active=s;preview.srcObject=s;await waitVideo(preview,7000);await preview.play();
+    const tr=s.getVideoTracks()[0],set=tr.getSettings(),caps=tr.getCapabilities?tr.getCapabilities():{};
+    log(`OPEN SUCCESS ${label} in ${(performance.now()-t).toFixed(0)} ms`);
+    log(`  track="${tr.label}"`);
+    log(`  settings=${JSON.stringify(set)}`);
+    log(`  capabilityKeys=${Object.keys(caps).sort().join(',')||'(none)'}`);
+    const ctx=control.getContext('2d',{willReadFrequently:true});control.width=preview.videoWidth;control.height=preview.videoHeight;ctx.drawImage(preview,0,0,control.width,control.height);
+    const p=ctx.getImageData(control.width>>1,control.height>>1,1,1).data;log(`  8bit center=[${p[0]},${p[1]},${p[2]},${p[3]}]`);
+    const z=probeFloat(preview);if(z.ok)log(`  R32F SUCCESS likelyZ16=${z.likely} nonzero=${z.nonzero} min=${z.min} max=${z.max} residualMean=${z.residualMean}`);else log(`  R32F FAILED: ${z.reason}`);
+    return true;
+  }catch(e){log(`OPEN FAILED ${label} after ${(performance.now()-t).toFixed(0)} ms — ${e.name}: ${e.message}`);stopActive();return false}
+}
+function probeFloat(video){
+  const w=video.videoWidth,h=video.videoHeight,c=document.createElement('canvas');c.width=w;c.height=h;
+  const gl=c.getContext('webgl2',{premultipliedAlpha:false,preserveDrawingBuffer:true});if(!gl)return{ok:false,reason:'WebGL2 unavailable'};
+  if(!gl.getExtension('EXT_color_buffer_float'))return{ok:false,reason:'EXT_color_buffer_float unavailable'};
+  const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  while(gl.getError()!==gl.NO_ERROR){};try{gl.texImage2D(gl.TEXTURE_2D,0,gl.R32F,gl.RED,gl.FLOAT,video)}catch(e){return{ok:false,reason:e.name+': '+e.message}}
+  let er=gl.getError();if(er!==gl.NO_ERROR)return{ok:false,reason:'texImage2D 0x'+er.toString(16)};
+  const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)return{ok:false,reason:'framebuffer incomplete'};
+  const b=new Float32Array(w*h);while(gl.getError()!==gl.NO_ERROR){};gl.readPixels(0,0,w,h,gl.RED,gl.FLOAT,b);er=gl.getError();if(er!==gl.NO_ERROR)return{ok:false,reason:'readPixels 0x'+er.toString(16)};
+  let n=0,nz=0,min=Infinity,max=-Infinity,res=0;for(const v of b){if(!Number.isFinite(v))continue;n++;if(v!==0)nz++;if(v<min)min=v;if(v>max)max=v;const x=v*65535;res+=Math.abs(x-Math.round(x))}
+  const residualMean=n?res/n:NaN;return{ok:true,nonzero:nz,min,max,residualMean,likely:nz>100&&min>=0&&max<=1.0001&&residualMean<.02};
+}
+async function run(){
+  report='';logEl.textContent='';$('scan').disabled=true;stopActive();
+  log(`[${stamp()}] D435 UVC Profile Sweep`);log(`UA=${navigator.userAgent}`);log(`secureContext=${isSecureContext}`);
+  const sup=navigator.mediaDevices?.getSupportedConstraints?.()||{};log(`constraints videoKind=${!!sup.videoKind} width=${!!sup.width} height=${!!sup.height} frameRate=${!!sup.frameRate}`);
+  try{
+    let devices=await navigator.mediaDevices.enumerateDevices();
+    if(!devices.some(d=>d.kind==='videoinput'&&d.label)){
+      log('Labels hidden: opening generic permission seed.');
+      const seed=await navigator.mediaDevices.getUserMedia({video:true,audio:false});seed.getTracks().forEach(t=>t.stop());devices=await navigator.mediaDevices.enumerateDevices();
+    }
+    const vids=devices.filter(d=>d.kind==='videoinput');log(`videoInputs=${vids.length}`);vids.forEach((d,i)=>log(`[${i}] "${d.label}" groupId=${d.groupId||'(none)'}`));
+    const normal=vids.find(d=>!/realsense/i.test(d.label));
+    if(normal){log('');log('=== CONTROL CAMERA TEST ===');const ok=await openStream('control-deviceId-only',normal.deviceId,{});log(`CONTROL RESULT=${ok?'PASS':'FAIL'}`);stopActive();}else log('No non-RealSense control camera found.');
+    const depth=vids.find(d=>/realsense/i.test(d.label)&&/depth/i.test(d.label));if(!depth)throw new Error('No Depth-labeled RealSense input found.');
+    log('');log('=== D435 DEPTH PROFILE SWEEP ===');let success=false;
+    for(const [name,extra] of profiles){if(await openStream(name,depth.deviceId,extra)){success=true;log(`WINNER=${name}`);break}}
+    if(!success)log('RESULT: all tested D435 Depth profiles failed in Chrome.');
+    else log('RESULT: D435 Depth opened. Keep this stream open while copying the log if desired.');
+  }catch(e){log(`TEST FAILED: ${e.name}: ${e.message}`)}finally{$('scan').disabled=false}
+}
+$('scan').onclick=run;$('stop').onclick=()=>{stopActive();log('Active stream stopped.')};$('copy').onclick=async()=>{try{await navigator.clipboard.writeText(report);$('copy').textContent='Copied';setTimeout(()=>$('copy').textContent='Copy log',1000)}catch(e){log('COPY FAILED: '+e.message)}};addEventListener('beforeunload',stopActive);
+})();
+</script>
+</body></html>
