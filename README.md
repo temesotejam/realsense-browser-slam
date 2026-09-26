@@ -1,116 +1,33 @@
-## Build 20260925.27 — absolute T265 map prior
+# RealSense Browser SLAM
 
-Build 27 addresses two issues observed in the build-26 hardware log:
+Intel RealSense **D435 + T265** を使い、Desktop Chrome / Edge と GitHub Pages だけで動作するブラウザベースの6DoF自己位置推定・再ローカライズ実験です。
 
-- STATIC map confirmation counters were being cleared on every frozen frame, so a 3-frame T265-assisted confirmation could never complete while stationary.
-- LOST recovery could still accept a globally wrong keyframe when local RGB/T265 agreement looked plausible.
+現在の基準版は **build 20260925.27** です。
 
-Changes:
+- Latest: https://temesotejam.github.io/realsense-browser-slam/
+- Fixed build 27: https://temesotejam.github.io/realsense-browser-slam/build-20260925-27.html?v=20260925.27
+- Sensor Hub: https://temesotejam.github.io/realsense-web-viewer/sensor-hub.html
 
-- pending map confirmations now persist across STATIC frames;
-- the first keyframe's T265 snapshot defines a session-local origin-relative pose prior;
-- every map candidate is compared against that absolute T265 map prior;
-- very large recovery corrections require RGB identity, Depth/T265 agreement, keyframe proximity, and tight absolute T265-map consistency;
-- large T265-assisted normal map locks also require absolute map consistency;
-- diagnostics expose the accepted anchor's absolute T265-map error.
+> このプロジェクトでは、T265だけを絶対座標系として使いません。  
+> **T265 = 短時間の相対運動・姿勢・整合性確認**、**D435 RGB-D map = 長時間の絶対座標**という役割分担です。
 
-The persistent RGB-D map remains the authoritative coordinate system; T265 remains a prior/consistency source rather than the final map pose.
-
-## Build 20260925.26 — STATIC map relock
-
-Build 26 fixes a structural issue found in the build-25 hardware log: while STATIC was latched, odometry was frozen correctly, but persistent-map matching was also disabled. That meant the camera could return to a known place, stop, and remain frozen at the last odometry pose without another opportunity to relocalize.
-
-Changes:
-
-- STATIC still freezes frame-to-frame pose integration;
-- STATIC still blocks new keyframes;
-- persistent-map matching now continues at low rate while STATIC;
-- accepted STATIC map matches can update the pose and trusted anchor;
-- diagnostics expose STATIC map checks / locks;
-- build-25 cumulative T265 motion gating and duplicate-keyframe suppression remain active.
-
-## Build 20260925.25 — cumulative T265 STATIC gate
-
-Build 25 addresses the build-24 hardware log where the camera was physically stationary but RGB geometry alone repeatedly released the STATIC latch and created a duplicate start-location keyframe.
-
-Changes:
-
-- STATIC stores the T265 pose at latch time and measures cumulative translation/rotation from that pose;
-- RGB translation, rotation and scale are treated as one RGB motion source, not three independent votes;
-- ICP/RGB jitter cannot release STATIC while cumulative T265 still says the camera is stationary unless Depth geometry also corroborates motion;
-- slow real motion can still release STATIC because cumulative T265 and Depth-from-latch grow over time;
-- keyframe creation is suppressed when T265 says an existing keyframe is within 6 cm and 4 degrees;
-- diagnostics expose T265 motion since STATIC and the independent motion-source votes.
-
-The map-matching safeguards from build 24 remain unchanged.
-
-## Build 20260925.24 — near-keyframe T265 map identity
-
-Build 24 tightens map locking after the build-23 hardware log showed a large correction could be accepted against the wrong keyframe.
-
-Changes:
-
-- T265 keyframe-to-current distance/rotation is used to rank map candidates before ICP;
-- the original trusted origin keyframe is forced into the candidate set when T265 says the camera is physically near it;
-- T265 may initialize ICP, but it may no longer relax place identity by itself;
-- large T265-assisted corrections require RGB identity, Depth agreement, T265/Depth consistency, and physical proximity to the candidate keyframe;
-- T265-assisted large corrections require three consecutive confirmations instead of two;
-- diagnostics expose the accepted anchor keyframe and its T265 proximity;
-- T265 snapshots stored in saved map files are not reused after loading because the T265 world origin is session-local.
-
-## Build 20260925.23 — T265-seeded map matching
-
-Build 23 extends the T265 integration from short-term tracking into map verification:
-
-- every newly-created keyframe stores the contemporaneous T265 pose snapshot;
-- local keyframe ICP and global map-match ICP can initialize from the T265 keyframe-to-current relative pose instead of identity;
-- large map corrections can be accepted with moderate RGB evidence when Depth ICP and T265 agree;
-- the starting keyframe is still the trusted map origin;
-- initial STATIC can snap back to the origin keyframe when T265 confirms the camera remained within 5 cm / 3 degrees.
-
-T265 is still not used as the persistent map coordinate system. It supplies relative motion and a consistency check; RGB+Depth map locks remain authoritative for long-term coordinates.
-
-## Build 20260925.22 — T265 relative-pose guard / bridge
-
-Build 22 addresses the first build-21 hardware log:
-
-- the first map keyframe is created immediately, before the initial STATIC latch, so the starting location is the trusted map origin;
-- T265 relative XYZ is used only as a short-term frame-to-frame motion guard, not as the persistent map coordinate system;
-- if Depth ICP translation disagrees strongly with T265 during a large turn, the tracker temporarily enters `T265_BRIDGE` instead of immediately entering LOST;
-- no new keyframes are created during `T265_BRIDGE`;
-- the large-rotation sanity gate is relaxed only for verified T265 bridge motion;
-- Pause → Resume no longer resets the tracking session or forces map recovery.
-
-Persistent RGB+Depth map locking remains authoritative for long-term absolute coordinates.
-
-
-## Build 20260925.21 — D435 + T265 Sensor Hub fusion
-
-The current build embeds the headless `realsense-web-viewer/sensor-hub.html` and automatically consumes:
-
-- corrected 320×240 D435 Z16 Depth from the Sensor Hub,
-- T265 6DoF pose over WebUSB,
-- D435 RGB through a separate browser UVC stream for persistent-map feature matching.
-
-T265 absolute XYZ is not used in this first fusion stage. Instead, relative T265 orientation between Depth frames is converted into the D435 optical basis and used as the primary odometry rotation. D435 projective ICP still estimates metric translation, while persistent RGB+Depth map locking remains the long-term absolute-coordinate authority.
-
-The first map keyframe is now marked as the trusted origin immediately, fixing the build-20 case where a fresh session could create recent drifting keyframes before any globally trusted anchor existed.
-
-# D435 Browser SLAM
-
-Intel RealSense **D435を主対象**に、GitHub Pagesだけで6DoF位置姿勢を推定する実験プロジェクトです。
+---
 
 ## 目的
 
-欲しい出力は地図そのものではなく、D435の移動です。
+主な出力はカメラの6DoF位置姿勢です。
 
 - X / Y / Z [m]
 - Roll / Pitch / Yaw [deg]
-- Tracking quality
-- ICP RMSE / inliers
-- Loop closure / relocalization状態
+- Tracking state
+- ICP inliers / RMSE
+- Keyframes
+- Loop closure
+- Relocalization
+- T265 / Depth ICP consistency
+- Persistent-map anchor
 
-PC側に以下は要求しません。
+PC側には以下を要求しません。
 
 - RealSense SDK / librealsense
 - Python
@@ -118,67 +35,375 @@ PC側に以下は要求しません。
 - ローカルHTTPサーバー
 - 常駐ネイティブアプリ
 
-D435をUSB接続し、GitHub PagesをChrome/Edgeで開くことを前提にしています。
+D435とT265をUSB接続し、GitHub Pagesをブラウザで開く構成です。
 
-## v0.2 architecture
+---
+
+## Current architecture
 
 ```text
 D435
- ├─ Depth UVC ── getUserMedia
- │                  │
- │                  ▼
- │              WebGL2 R32F
- │                  │
- │          ┌───────┴────────┐
- │          │                │
- │      live view       320×240 depth
- │                           │
- │                           ▼
- │                     Web Worker
- │                           │
- │                  multi-scale ICP
- │                           │
- │                  local 6DoF tracking
- │                           │
- └─ RGB UVC (optional) ──────┤
-                             │
-                    keyframes / BRIEF-like
-                    place recognition
-                             │
-                    loop candidate
-                             │
-                    depth ICP verification
-                             │
-                   trajectory correction
-                             │
-                    X Y Z / R P Y
+ ├─ Depth
+ │    └─ realsense-web-viewer / Sensor Hub
+ │         └─ 320x240 Z16 Depth
+ │
+ └─ RGB
+      └─ Browser UVC
+           └─ BRIEF-like visual features
+
+T265
+ └─ WebUSB
+      └─ ~200 Hz 6DoF pose
+           │
+           ▼
+     relative pose / rotation
+     motion guard / ICP seed
+     map consistency prior
+           │
+           ├───────────────┐
+           ▼               ▼
+     D435 Depth ICP   RGB place identity
+           │               │
+           └───────┬───────┘
+                   ▼
+            Persistent keyframes
+                   │
+            map matching / relock
+                   │
+                   ▼
+             X Y Z / R P Y
 ```
 
-### Tracking
+### D435 Depth
 
-- 640×480 Depth表示
-- SLAM用DepthはGPUで320×240へ縮小
-- Worker内でmulti-scale projective point-to-plane ICP
-- constant-velocity initial guess
-- UI threadとSLAM計算を分離
-- Workerが処理中なら次フレームを捨てるback-pressure方式
+Depthは `realsense-web-viewer` のHeadless Sensor Hubから受信します。
 
-### SLAM robustness
+- Browser UVC
+- WebGL2 `R32F/FLOAT`
+- Z16相当へ復元
+- 320×240でSLAMへ配信
+- 現在の物理向き補正はSensor Hub側で完了
 
-単純なframe-to-frame odometryだけではありません。
+SLAM側ではSensor HubのDepth配列をそのまま使用し、追加の上下左右反転は行いません。
 
-- keyframe保持
-- Depth descriptorによる候補探索
-- RGB入力が利用できる場合は軽量BRIEF-like descriptorによる場所候補探索
-- loop候補をDepth ICPで幾何検証
-- loop成立時に累積軌跡へdrift correction
-- tracking lost時のkeyframe relocalization
+### D435 RGB
 
-現段階のloop correctionは、完全な非線形pose graph optimizerではなく、検出されたloop誤差を該当区間へ分散する軽量補正です。GitHub Pages単体での成立性を先に確認するための設計です。
+RGBはSLAMページ側でD435のRGB UVCを自動取得します。
+
+主用途は、
+
+- 場所候補探索
+- Keyframe identity
+- Loop closure確認
+- Relocalization確認
+
+です。
+
+metricな短時間移動量の主系統はDepth / T265で、RGB単独で位置を決めません。
+
+### T265
+
+T265は `realsense-web-viewer` のWebUSB経路から取得します。
+
+実機確認済みの経路:
+
+```text
+03E7:2150 boot device
+      ↓
+firmware boot
+      ↓
+8087:0B37 runtime
+      ↓
+TM2 WebUSB protocol
+      ↓
+~200 Hz pose
+```
+
+T265から使用する主な値:
+
+- position
+- quaternion
+- velocity
+- angular velocity
+- tracker confidence
+- mapper confidence
+
+T265座標系はD435 optical frameへ変換してから使用します。
+
+---
+
+## Sensor fusion policy
+
+現在の基本方針は次の通りです。
+
+### Short-term motion
+
+```text
+Rotation
+  → T265を主
+
+Translation
+  → D435 Depth ICPを主
+  → ICPが不自然な場合はT265相対移動をguard / bridgeに使用
+```
+
+### Long-term absolute coordinates
+
+```text
+Persistent RGB-D map
+  → 絶対座標の基準
+
+T265
+  → map ICPの初期値
+  → 候補Keyframeとの近接確認
+  → 原点基準のabsolute-map consistency check
+```
+
+T265のworld座標そのものをPersistent Map座標として採用しない理由は、T265のworld originがセッション依存であり、長時間ドリフトも存在するためです。
+
+---
+
+## Tracking states
+
+主な状態は以下です。
+
+### `INITIALIZED`
+
+セッション開始直後です。
+
+最初のDepthフレームで最初のKeyframeを作成し、これをTrusted originとして扱います。
+
+### `TRACKING`
+
+通常の追跡状態です。
+
+- T265 relative pose
+- D435 Depth ICP
+- local keyframe anchor
+
+を使用してPoseを更新します。
+
+### `T265_BRIDGE`
+
+Depth ICPの並進がT265相対移動と大きく矛盾した場合の一時的な橋渡し状態です。
+
+- T265 relative poseで追跡継続
+- 新規Keyframeは作らない
+- Depth追跡が戻れば `TRACKING` へ復帰
+
+大きな旋回で即LOSTすることを防ぐための状態です。
+
+### `STATIC`
+
+静止判定が成立した状態です。
+
+STATIC中は、
+
+- frame-to-frame Pose積分: **停止**
+- 新規Keyframe作成: **停止**
+- Persistent Map照合: **継続**
+
+します。
+
+STATIC解除には、T265のSTATIC開始時からの累積移動量を利用します。RGB translation / rotation / scaleはまとめて「RGB 1センサ」として扱い、RGBだけの揺らぎでSTATICが解除されないようにしています。
+
+### `MAP_CONFIRM` / `RECOVERY_CONFIRM`
+
+大きなMap補正を即採用せず、複数回連続で確認している状態です。
+
+T265-assistedな大補正では3回確認を要求する場合があります。
+
+### `MAP_LOCKED`
+
+既存Map Keyframeとの照合が成立し、Persistent Map座標へPoseを補正した状態です。
+
+### `LOST`
+
+通常追跡が成立しない状態です。
+
+Persistent Mapからの再ローカライズを試みます。
+
+### `RELOCALIZED`
+
+LOST後に既存Map Keyframeとの照合が成立した状態です。
+
+---
+
+## Map matching safeguards
+
+誤った場所への大補正を防ぐため、現在は複数条件を組み合わせています。
+
+- RGB identity
+- Depth ICP
+- forward / reverse ICP consistency
+- T265 keyframe-to-current proximity
+- T265 / Depth motion consistency
+- first keyframe origin prior
+- origin-relative absolute T265 map prior
+- multi-frame confirmation
+
+特に大きなrelocalization correctionでは、単に「あるKeyframeとのT265相対Poseが小さい」だけでは採用しません。
+
+build 27では、最初のKeyframeのT265 snapshotをセッション内の基準として、
+
+```text
+origin T265
+    ↓
+current T265
+    ↓
+predicted map pose
+```
+
+を作り、Map候補の絶対Poseとの整合性も確認します。
+
+---
+
+## STATIC logic
+
+静止時のDepth ICPは数mm単位で見かけ上動くことがあります。そのため、単純にICPだけでSTATIC判定しません。
+
+現在は以下を組み合わせます。
+
+- T265 cumulative translation / rotation
+- Depth geometry change
+- ICP motion
+- RGB geometry
+
+STATICに入った時点のT265 poseを保存し、その時点からの累積移動量を測定します。
+
+重複Keyframeを防ぐため、T265上で既存Keyframeから概ね **6 cm / 4°以内**の場合は新規Keyframeを抑制します。
+
+---
+
+## Browser Sensor Hub
+
+このSLAMは別リポジトリのSensor Hubを利用します。
+
+Repository:
+
+https://github.com/temesotejam/realsense-web-viewer
+
+Sensor Hub:
+
+https://temesotejam.github.io/realsense-web-viewer/sensor-hub.html
+
+SLAMページ内にSensor Hubをiframeとして埋め込み、同一originの `BroadcastChannel` を使って通信します。
+
+```text
+BroadcastChannel("realsense-sensor-api-v1")
+```
+
+主な受信イベント:
+
+- `d435_depth`
+- `d435_status`
+- `t265_pose`
+- `t265_status`
+- `sensor_api_status`
+
+D435 Depthはブラウザのbackground throttlingを避けるため、Sensor Hubを同じforeground top-level page内に埋め込んで動作させます。
+
+---
+
+## How to use
+
+### 1. Hardware
+
+- Intel RealSense D435
+- Intel RealSense T265
+- USB 3.x接続推奨
+
+D435とT265は、できるだけ物理的な向きを揃えて固定してください。
+
+現状は両カメラ間の厳密なSE(3) extrinsic calibrationをまだ使用していないため、特に並進には取付位置差の影響が残ります。
+
+### 2. Open
+
+Desktop Chrome / Edgeで以下を開きます。
+
+https://temesotejam.github.io/realsense-browser-slam/
+
+### 3. Permission
+
+ブラウザの仕様上、初回だけは以下の許可が必要になる場合があります。
+
+- Camera permission
+- WebUSB / T265 authorization
+
+一度許可済みであれば、通常はSLAMページを開くだけでSensor HubとRGB取得が自動開始します。
+
+### 4. Initial static period
+
+起動直後は数秒間カメラを静止させます。
+
+正常時の目安:
+
+```text
+Keyframes = 1
+state = STATIC
+pose ≈ [0, 0, 0]
+rpy  ≈ [0, 0, 0]
+```
+
+### 5. Move and return
+
+実験では、
+
+```text
+初期位置で静止
+  ↓
+移動 / 旋回
+  ↓
+元の位置・向き付近へ戻る
+  ↓
+数秒静止
+```
+
+を推奨します。
+
+戻ったときに、
+
+- `MAP_CONFIRM`
+- `MAP_LOCKED`
+- `RELOCALIZED`
+- `Last map anchor KF`
+- `Anchor T265 proximity`
+- `T265 absolute-map error`
+
+を確認します。
+
+---
+
+## Current validation status
+
+### Confirmed
+
+- D435 Depthのブラウザ直接取得
+- D435 RGBのブラウザ直接取得
+- T265 WebUSB direct pose取得
+- T265 raw pose 約200 Hz
+- Sensor Hub経由のD435 Depth連続配信
+- D435 Depth物理向き補正
+- Headless Sensor Hub自動起動
+- STATIC時のPose安定化
+- STATIC中の誤解除抑制
+- T265_BRIDGEによる大旋回時の追跡継続
+- Persistent keyframe map
+- RGB + DepthによるMap照合
+- LOST後のrelocalization
+- STATIC中のMap relock
+
+### Current experimental baseline
+
+**build 20260925.27**
+
+build 27では初期STATIC動作までは実機確認済みです。大きな移動を複数回繰り返した場合のabsolute T265 map priorによる誤ロック抑制は、引き続き実機評価対象です。
+
+---
 
 ## D435 calibration
 
-初期値として、640×480向けのD430/D435 legacy intrinsics presetを使います。
+初期値として640×480向けのD430/D435 legacy intrinsics presetを使います。
 
 ```text
 fx  = 381.902008056641
@@ -187,72 +412,171 @@ ppx = 318.229400634766
 ppy = 239.944534301758
 ```
 
-ブラウザだけではlibrealsenseからfactory intrinsicsを取得できないため、**実機固有値を入力できる場合は置き換えることを推奨**します。
+SLAM内部の320×240では0.5倍した値を使用します。
 
-Depth scaleの初期値は `0.001 m / Z16` です。これも実機設定に合わせて変更可能です。
+```text
+fx = 190.951
+fy = 190.951
+cx = 159.114
+cy = 119.972
+```
 
-## Performance strategy
+Depth scale初期値:
 
-30 fpsカメラ入力を全部SLAMへ入れません。
+```text
+0.001 m / Z16
+```
 
-- Camera: 30 fps前後
-- Depth preview: camera rate
-- SLAM: 15 Hz target（変更可）
-- loop search: keyframe追加時のみ
-- RGB feature extraction: keyframe / relocalization時のみ
+ブラウザだけではlibrealsenseからfactory intrinsicsを直接取得しないため、実機固有の値が分かる場合は置き換えることを推奨します。
 
-ページには以下を常時表示します。
+---
 
+## Performance
+
+現在の実機ログでは、おおむね以下の範囲で動作しています。
+
+- D435 Depth API: 約8 Hz
+- SLAM: 約7–8 Hz
+- T265 pose: Sensor Hub側で約200 Hz
+- Worker compute: 通常 約5–30 ms
+- Map search時: 数十msまで増加する場合あり
+
+Worker処理中に次フレームが来た場合はback-pressureとしてフレームを捨てます。
+
+---
+
+## Diagnostics
+
+画面では主に以下を確認できます。
+
+### Sensor
+
+- Hub API
+- D435 Depth
+- D435 RGB
+- T265 Pose
+- T265 confidence
+- Depth orientation
+
+### Tracking
+
+- Tracking state
+- ICP inliers
+- ICP RMSE
 - Camera FPS
 - SLAM Hz
 - Worker compute time
 - dropped frames
-- ICP inliers / RMSE
-- keyframes
-- loop closures
-- relocalizations
 
-**Browser benchmark**ボタンで、実機を動かす前にその端末上でsynthetic 320×240 ICPの処理時間を測れます。
+### T265 fusion
 
-## How to use
+- T265 fusion
+- T265 Δ pose
+- T265 / ICP disagreement
+- T265 retry / bridge
+- T265 since STATIC
+- Motion sources
 
-1. D435をUSB 3.xで接続。
-2. GitHub PagesをDesktop Chrome/Edgeで開く。
-3. `Refresh USB`。
-4. `Depth input`にRealSense Depthを選択。
-5. RGB候補が見える場合はRGBも選択。RGBがなくてもDepth-onlyで動作します。
-6. `Start`。
-7. 最初はD435を静止し、その後ゆっくり移動。
-8. `X/Y/Z` と `Roll/Pitch/Yaw`、RMSE、inliersを確認。
+### Map
+
+- Keyframes
+- Map mode
+- Loop closures
+- Relocalizations
+- Last map anchor KF
+- Anchor T265 proximity
+- T265 absolute-map error
+- STATIC map relock
+
+---
 
 ## Important limitations
 
-- D435にはIMUがないため、急激な回転や形状の乏しい場面ではDepth trackingが不安定になり得ます。
-- RGB/Depthの厳密なhardware synchronizationは、ブラウザUVC経路ではRealSense SDKほど制御できません。そのためRGBは主にplace recognitionへ使い、metric trackingはDepthを主系統にしています。
-- loop closureはv0.2では軽量実装です。ORB-SLAM3等と同等の成熟度を意味しません。
-- 完全なpose-graph optimization / bundle adjustmentは次段階です。
+### 1. D435 / T265 extrinsics
 
-## Development milestones
+D435とT265の厳密な剛体変換
 
-- [x] Browser-direct D435 Depth input
-- [x] GPU display + GPU downsample
-- [x] Worker multi-scale Depth ICP
-- [x] 6DoF pose output
-- [x] keyframes
-- [x] RGB-assisted place candidate search
-- [x] Depth-ICP loop verification
-- [x] lightweight loop drift correction
-- [x] relocalization path
-- [x] browser-side benchmark / diagnostics
-- [ ] D435実機のstationary drift検証
-- [ ] 並進・回転の実測誤差評価
-- [ ] exact per-device calibrationの入力手順確立
-- [ ] loop false-positive耐性の実機調整
-- [ ] full SE(3) pose graph optimizer
-- [ ] optional WASM backend
+```text
+T_T265_D435
+```
+
+はまだ正式にキャリブレーションしていません。
+
+現在は物理取付方向を揃え、T265 translationにはある程度のlever-arm許容値を持たせています。
+
+### 2. Browser RGB / Depth synchronization
+
+RGBとDepthの厳密なhardware synchronizationは、librealsenseほど制御できません。
+
+そのため、
+
+- Depth / T265 = metric tracking
+- RGB = place identity
+
+という使い分けにしています。
+
+### 3. T265 world origin
+
+T265のworld originはセッション依存です。
+
+そのため保存Mapに含まれる過去セッションのT265 snapshotは、Mapを再ロードした別セッションで初期値として再利用しません。
+
+### 4. Map optimization
+
+現在のMap correctionは軽量実装です。
+
+ORB-SLAM3等のような完全な、
+
+- pose graph optimization
+- bundle adjustment
+- tightly coupled visual-inertial optimization
+
+ではありません。
+
+### 5. Browser-only experimental system
+
+このプロジェクトはGitHub Pages単体でRealSense SLAMがどこまで成立するかを検証する実験実装です。安全用途・計測保証用途を目的としたものではありません。
+
+---
+
+## Development history
+
+主要なbuildだけを記載します。
+
+| Build | Main change |
+|---|---|
+| 21 | D435 + T265 Sensor Hub統合 |
+| 22 | T265 relative-pose guard / `T265_BRIDGE` |
+| 23 | T265-seeded map matching |
+| 24 | near-keyframe T265 map identity |
+| 25 | cumulative T265 STATIC gate / duplicate keyframe抑制 |
+| 26 | STATIC中のpersistent-map relock |
+| **27** | **origin-relative absolute T265 map prior** |
+
+build 20以前では、D435単体のDepth ICP / RGB persistent mapを中心に開発しました。STATIC driftは大きく改善しましたが、大旋回時のDepth ICPが弱かったため、build 21以降でT265を統合しています。
+
+---
+
+## Next candidates
+
+現時点で優先度が高い候補です。
+
+- build 27の複数往復実機評価
+- D435↔T265 extrinsic calibration
+- keyframe生成条件の追加評価
+- absolute T265 priorの閾値調整
+- saved map再読込時の長期relocalization評価
+- full SE(3) pose graph optimization
+- optional WASM backend
+
+---
 
 ## Related project
 
-Depthをブラウザから直接取得できることの先行検証:
+### RealSense Web Viewer / Sensor Hub
 
 https://github.com/temesotejam/realsense-web-viewer
+
+https://temesotejam.github.io/realsense-web-viewer/
+
+D435 Depthのブラウザ直接取得と、T265 WebUSB direct pose取得を担当します。
